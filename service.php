@@ -111,7 +111,8 @@ switch ($intent) {
     case 'cari_pesawat':
         $content = search_flight($token, $fromplace, $toplace, $date);
         $results[0] = $content['departures'];
-        if ($results[0]) {
+        file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' count ' . count($results[0]) . PHP_EOL, FILE_APPEND);
+        if (count($results[0]) > 0)  {
             $output = '';
             $idx = 0;
             if ($results && count($results) > 0) {
