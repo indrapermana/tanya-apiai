@@ -6,8 +6,8 @@ function get_web_page($url, $data = NULL) {
         CURLOPT_CUSTOMREQUEST => "GET", // Atur type request, get atau post
         CURLOPT_POST => false, // Atur menjadi GET
         CURLOPT_FOLLOWLOCATION => true, // Follow redirect aktif
-        CURLOPT_CONNECTTIMEOUT => 120, // Atur koneksi timeout
-        CURLOPT_TIMEOUT => 120, // Atur response timeout
+        CURLOPT_CONNECTTIMEOUT => 3, // Atur koneksi timeout
+        CURLOPT_TIMEOUT => 3, // Atur response timeout
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => array('Content-type: application/json'),
         CURLOPT_POSTFIELDS => $data,
@@ -45,31 +45,30 @@ function rp($angka) {
     return $jadi;
 }
 
+function is_date($x) {
+    return (date('d-m-Y', strtotime($x)) == $x);
+}
+
 function is_in_range_waktu($rangetimearrival, $value) {
     date_default_timezone_set('Asia/Jakarta');
     /* This sets the $time variable to the current hour in the 24 hour clock format */
     $date = date_create_from_format("H:i", $value);
     $time = $date->format("H:i");
-    if (strtolower($rangetimearrival) == 'subuh') {
-        if ($time >= '3' and $time < '6') {
-            return true;
-        }
-    } else if (strtolower($rangetimearrival) == 'pagi') {
-        if ($time >= '6' and $time < '11') {
-            return true;
-        }
-    } else if (strtolower($rangetimearrival) == 'siang') {
-        if ($time >= '11' and $time < '13') {
-            return true;
-        }
-    } else if (strtolower($rangetimearrival) == 'sore') {
-        if ($time >= '15' and $time < '18') {
-            return true;
-        }
-    } else if (strtolower($rangetimearrival) == 'malam') {
-        if ($time >= '18' and $time < '3') {
-            return true;
-        }
+    if (trim(strtolower($rangetimearrival)) == 'subuh' and $time >= "3" and $time < "6") {
+        file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' subuh ' . PHP_EOL, FILE_APPEND);
+        return true;
+    } else if (trim(strtolower($rangetimearrival)) == 'pagi' and $time >= "6" and $time < "11") {
+         file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' pagi ' . PHP_EOL, FILE_APPEND);
+        return true;
+    } else if (trim(strtolower($rangetimearrival)) == 'siang' and $time >= "11" and $time < "13") {
+         file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' siang ' . PHP_EOL, FILE_APPEND);
+        return true;
+    } else if (trim(strtolower($rangetimearrival)) == 'sore' and $time >= "15" and $time < "18") {
+         file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' sore ' . PHP_EOL, FILE_APPEND);
+        return true;
+    } else if (trim(strtolower($rangetimearrival)) == 'malam' and $time >= "18" and $time < "3") {
+         file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' malam ' . PHP_EOL, FILE_APPEND);
+        return true;
     } else {
         return false;
     }
@@ -80,7 +79,13 @@ $params = json_decode(file_get_contents('php://input'), TRUE);
 $result = $params['result'];
 $metadata = $result['metadata'];
 $intent = $metadata['intentName'];
-
+$resolved_query = $result['resolvedQuery'];
+//file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' resolved =  ' . $resolved_query . PHP_EOL, FILE_APPEND);
+$tmp = explode("tanggal", $resolved_query);
+if (!$tmp) {
+    $tmp = explode("tgl", $resolved_query);
+}
+file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' tmp =  ' . $tmp[1] . PHP_EOL, FILE_APPEND);
 $param = $result['parameters'];
 $aksi = $param['aksi'];
 $fromplace = $param['fromplace'];
@@ -93,26 +98,30 @@ $toplace = $param['toplace'];
 $token = "341798d4c59c49156235e09acd70972d9e145a2c"; //token tiket.com
 
 $today = date("Y-m-d");
+
 $dt = new DateTime($today);
 if ($p1 == 'besok') {
     $dt->add(new DateInterval('P1D')); //tambah 1 hari
 } else if ($p1 == 'lusa') {
     $dt->add(new DateInterval('P2D')); //tambah 2 hari
-} else {
-    if (is_numeric($p1) or is_numeric($p1 = 2)) {
-        $now = date('d');
-        $add = $p1 - $now;
-        date_add($dt, date_interval_create_from_date_string($add . ' days'));
-    }
+} else if (is_numeric($p1)) {
+    $now = date('d');
+    $add = $p1 - $now;
+    date_add($dt, date_interval_create_from_date_string($add . ' days'));
+}
+if (count($tmp) > 0) {
+    $date = date('d-m-Y', strtotime(trim($p1)));
+    $dt = new DateTime($date);
 }
 $date = $dt->format('Y-m-d');
-
+file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' date =  ' . $date . PHP_EOL, FILE_APPEND);
 switch ($intent) {
     case 'cari_pesawat':
         $content = search_flight($token, $fromplace, $toplace, $date);
         $results[0] = $content['departures'];
         file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' count ' . count($results[0]) . PHP_EOL, FILE_APPEND);
-        if (count($results[0]) > 0)  {
+        if (count($results[0]) > 0) {
+            file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' enter search.. ' . PHP_EOL, FILE_APPEND);
             $output = '';
             $idx = 0;
             if ($results && count($results) > 0) {
@@ -121,13 +130,23 @@ switch ($intent) {
                         foreach ($r as $key => $row) {
                             if (is_array($row)) {
                                 foreach ($row as $k => $v) {
-                                    $output .= 'rute : ' . $v['departure_city_name'] . " ke " . $v['arrival_city_name'] . PHP_EOL;
-                                    $output .= 'airlines : ' . $v['airlines_name'] . PHP_EOL;
-                                    $output .= 'harga : ' . rp(intval($v['price_value'])) . PHP_EOL;
-                                    $output .= 'berangkat : ' . $v['departure_flight_date_str'] . " " . $v['simple_departure_time'] . "-" . $v['simple_arrival_time'] . PHP_EOL;
-                                    $output .= PHP_EOL;
-                                    //}
-                                    $idx++;
+                                    if ($p2) {
+                                        if (is_in_range_waktu($p2, $v['simple_departure_time'])) {
+                                            $output .= 'rute : ' . $v['departure_city_name'] . " ke " . $v['arrival_city_name'] . PHP_EOL;
+                                            $output .= 'airlines : ' . $v['airlines_name'] . PHP_EOL;
+                                            $output .= 'harga : ' . rp(intval($v['price_value'])) . PHP_EOL;
+                                            $output .= 'berangkat : ' . $v['departure_flight_date_str'] . " " . $v['simple_departure_time'] . "-" . $v['simple_arrival_time'] . PHP_EOL;
+                                            $output .= PHP_EOL;
+                                            $idx++;
+                                        }
+                                    } else {
+                                        $output .= 'rute : ' . $v['departure_city_name'] . " ke " . $v['arrival_city_name'] . PHP_EOL;
+                                        $output .= 'airlines : ' . $v['airlines_name'] . PHP_EOL;
+                                        $output .= 'harga : ' . rp(intval($v['price_value'])) . PHP_EOL;
+                                        $output .= 'berangkat : ' . $v['departure_flight_date_str'] . " " . $v['simple_departure_time'] . "-" . $v['simple_arrival_time'] . PHP_EOL;
+                                        $output .= PHP_EOL;
+                                        $idx++;
+                                    }
                                 }
                             }
                         }
@@ -181,7 +200,7 @@ switch ($intent) {
 
         break;
 }
-
+file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' output ' . $output . PHP_EOL, FILE_APPEND);
 $out = [
     'speech' => $output,
     'displayText' => $output,
