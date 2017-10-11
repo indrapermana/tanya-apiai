@@ -52,7 +52,7 @@ function is_date($x) {
 function is_in_range_waktu($rangetimearrival, $value) {
     date_default_timezone_set('Asia/Jakarta');
     /* This sets the $time variable to the current hour in the 24 hour clock format */
-    $date = date_create_from_format("H:i", $value);
+    $date = date_create_from_format("H:i", $value);//value : 17:00
     $time = $date->format("H:i");
     if (trim(strtolower($rangetimearrival)) == 'subuh' and $time >= "3" and $time < "6") {
         file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' subuh ' . PHP_EOL, FILE_APPEND);
@@ -80,40 +80,41 @@ $result = $params['result'];
 $metadata = $result['metadata'];
 $intent = $metadata['intentName'];
 $resolved_query = $result['resolvedQuery'];
-//file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' resolved =  ' . $resolved_query . PHP_EOL, FILE_APPEND);
-$tmp = explode("tanggal", $resolved_query);
-if (!$tmp) {
-    $tmp = explode("tgl", $resolved_query);
-}
-file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' tmp =  ' . $tmp[1] . PHP_EOL, FILE_APPEND);
 $param = $result['parameters'];
 $aksi = $param['aksi'];
 $fromplace = $param['fromplace'];
 $jenis = $param['jenis']; //bisa diganti intentName
 $p1 = $param['p1']; //periode eq.besok
 $p2 = $param['p2']; //periode eq.pagi
+$tanggal = $param['tanggal']; //periode eq.pagi
 $toplace = $param['toplace'];
 
 //token
 $token = "341798d4c59c49156235e09acd70972d9e145a2c"; //token tiket.com
 
+ date_default_timezone_set('Asia/Jakarta');
 $today = date("Y-m-d");
-
+file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' today =  ' . $today . PHP_EOL, FILE_APPEND);
 $dt = new DateTime($today);
-if ($p1 == 'besok') {
+if ($p1 == 'besok' or $p2 == 'besok') {
     $dt->add(new DateInterval('P1D')); //tambah 1 hari
-} else if ($p1 == 'lusa') {
+} else if ($p1 == 'lusa' or $p2 == 'lusa') {
     $dt->add(new DateInterval('P2D')); //tambah 2 hari
 } else if (is_numeric($p1)) {
     $now = date('d');
     $add = $p1 - $now;
     date_add($dt, date_interval_create_from_date_string($add . ' days'));
+}else{
+    $today = date("Y-m-d");
+    $dt = new DateTime($today);
 }
-if (count($tmp) > 0) {
-    $date = date('d-m-Y', strtotime(trim($p1)));
+if ($tanggal) {
+    file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' masupp  ' . PHP_EOL, FILE_APPEND);
+    $date = date('Y-m-d', strtotime(trim($tanggal)));
     $dt = new DateTime($date);
 }
 $date = $dt->format('Y-m-d');
+file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' waktu =  ' . $p1 . PHP_EOL, FILE_APPEND);
 file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' date =  ' . $date . PHP_EOL, FILE_APPEND);
 switch ($intent) {
     case 'cari_pesawat':
@@ -130,7 +131,7 @@ switch ($intent) {
                         foreach ($r as $key => $row) {
                             if (is_array($row)) {
                                 foreach ($row as $k => $v) {
-                                    if ($p2) {
+                                    if ($p2 and $p2 != 'now' and $p2 != 'besok' and $p2 != 'lusa') {
                                         if (is_in_range_waktu($p2, $v['simple_departure_time'])) {
                                             $output .= 'rute : ' . $v['departure_city_name'] . " ke " . $v['arrival_city_name'] . PHP_EOL;
                                             $output .= 'airlines : ' . $v['airlines_name'] . PHP_EOL;
@@ -188,19 +189,14 @@ switch ($intent) {
         }
         break;
 
-    case 'cari_commuterline':
-
-        break;
-
-    case 'cari_busway':
-
-        break;
-
     default:
 
         break;
 }
 file_put_contents("log-" . date('Y-m-d') . ".txt", date('Y:m:d H:i:s') . ' output ' . $output . PHP_EOL, FILE_APPEND);
+if(count($result) == 0 or !$output or empty($output)){
+    $output = "tidak ada jadwal";
+}
 $out = [
     'speech' => $output,
     'displayText' => $output,
